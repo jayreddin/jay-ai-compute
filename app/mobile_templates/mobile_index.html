@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Mobile Interface</title>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            max-width: 600px; 
+            margin: 0 auto; 
+            padding: 20px; 
+            background-color: #f4f4f4;
+            line-height: 1.6;
+        }
+        .container {
+            background-color: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        textarea { 
+            width: 100%; 
+            height: 150px; 
+            margin-bottom: 10px; 
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            resize: vertical;
+        }
+        button { 
+            width: 100%; 
+            padding: 12px; 
+            background-color: #007bff; 
+            color: white; 
+            border: none; 
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>AI Command Interface</h1>
+        <textarea id="commandInput" placeholder="Enter your AI command..."></textarea>
+        <button onclick="executeCommand()">Execute Command</button>
+        <div id="status"></div>
+    </div>
+
+    <script>
+        function executeCommand() {
+            const commandInput = document.getElementById('commandInput');
+            const statusDiv = document.getElementById('status');
+            
+            // Clear previous status
+            statusDiv.textContent = '';
+            statusDiv.className = '';
+            
+            // Validate input
+            if (!commandInput.value.trim()) {
+                statusDiv.textContent = 'Please enter a command';
+                statusDiv.className = 'error';
+                return;
+            }
+            
+            // Show loading state
+            statusDiv.textContent = 'Executing...';
+            statusDiv.className = '';
+            
+            fetch('/execute', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ command: commandInput.value })
+            })
+            .then(response => response.json())
+            .then(data => {
+                statusDiv.textContent = data.message;
+                statusDiv.className = data.status === 'success' ? 'success' : 'error';
+                
+                // Clear input on successful execution
+                if (data.status === 'success') {
+                    commandInput.value = '';
+                }
+            })
+            .catch(error => {
+                statusDiv.textContent = 'Network error. Please try again.';
+                statusDiv.className = 'error';
+                console.error('Error:', error);
+            });
+        }
+    </script>
+</body>
+</html>
