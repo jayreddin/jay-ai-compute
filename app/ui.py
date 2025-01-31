@@ -842,7 +842,8 @@ class UI:
                     'typed and submitted',
                     'user said',
                     'user requested',
-                    'user sent'
+                    'user sent',
+                    'the user request'
                 ]
 
                 # Check if the message should be filtered
