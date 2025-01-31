@@ -138,8 +138,8 @@ Open Interface
 <details>
     <summary><b>Optional: Setup a Custom LLM</b></summary>
 
-- Open Interface supports using other OpenAI API style LLMs (such as Llava) as a backend and can be configured easily in the Advanced Settings window.
-- Enter the custom base url and model name in the Advanced Settings window and the API key in the Settings window as needed.
+- Open Interface supports using other OpenAI API style LLMs (such as Llava) as a backend and can be configured easily in the AI Model Settings window.
+- Enter the custom base url and model name in the AI Model Settings window and the API key in the Settings window as needed.
   <br>
   <picture>
 	<img src="assets/advanced_settings.png" align="middle" alt="Set API key in settings" width="400">

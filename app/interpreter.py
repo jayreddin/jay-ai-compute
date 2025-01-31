@@ -1,16 +1,29 @@
 import json
+import os
+import logging
 from multiprocessing import Queue
 from time import sleep
 from typing import Any
 
-import pyautogui
-
+try:
+    import pyautogui
+except Exception as e:
+    logging.warning(f"Warning: Could not import pyautogui: {e}")
+    logging.warning("Running in headless mode. Some GUI automation features will be disabled.")
+    pyautogui = None
 
 class Interpreter:
     def __init__(self, status_queue: Queue):
         # MP Queue to put current status of execution in while processes commands.
         # It helps us reflect the current status on the UI.
         self.status_queue = status_queue
+        
+        # Check and warn about GUI automation capabilities
+        if pyautogui is None:
+            logging.warning("WARNING: GUI automation is not available. Some functionality will be limited.")
+            self.headless_mode = True
+        else:
+            self.headless_mode = False
 
     def process_commands(self, json_commands: list[dict[str, Any]]) -> bool:
         """
@@ -36,6 +49,13 @@ class Interpreter:
         human_readable_justification = json_command.get('human_readable_justification')
         print(f'Now performing - {function_name} - {parameters} - {human_readable_justification}')
         self.status_queue.put(human_readable_justification)
+        
+        # Comprehensive handling for headless mode
+        gui_functions = ['click', 'moveTo', 'typewrite', 'write', 'press', 'hotkey']
+        if self.headless_mode and function_name in gui_functions:
+            logging.warning(f"Skipping GUI function {function_name} in headless mode. Simulating action.")
+            return self.simulate_headless_action(function_name, parameters)
+        
         try:
             self.execute_function(function_name, parameters)
             return True
@@ -48,6 +68,22 @@ class Interpreter:
 
             return False
 
+    def simulate_headless_action(self, function_name: str, parameters: dict[str, Any]) -> bool:
+        """
+        Simulate actions in headless mode by logging and returning success
+        """
+        simulated_actions = {
+            'click': f"Simulated click at {parameters.get('x', 'unknown')}, {parameters.get('y', 'unknown')}",
+            'moveTo': f"Simulated mouse move to {parameters.get('x', 'unknown')}, {parameters.get('y', 'unknown')}",
+            'typewrite': f"Simulated typing: {parameters.get('string', parameters.get('text', 'no text'))}",
+            'write': f"Simulated writing: {parameters.get('string', parameters.get('text', 'no text'))}",
+            'press': f"Simulated key press: {parameters.get('keys', parameters.get('key', 'no key'))}",
+            'hotkey': f"Simulated hotkey: {list(parameters.values())}"
+        }
+        
+        logging.info(simulated_actions.get(function_name, f"Simulated {function_name}"))
+        return True
+
     def execute_function(self, function_name: str, parameters: dict[str, Any]) -> None:
         """
             We are expecting only two types of function calls below
@@ -55,11 +91,12 @@ class Interpreter:
             2. pyautogui calls to interact with system's mouse and keyboard.
         """
         # Sometimes pyautogui needs warming up i.e. sometimes first call isn't executed hence padding a random call here
-        pyautogui.press("command", interval=0.2)
+        if pyautogui is not None:
+            pyautogui.press("command", interval=0.2)
 
         if function_name == "sleep" and parameters.get("secs"):
             sleep(parameters.get("secs"))
-        elif hasattr(pyautogui, function_name):
+        elif pyautogui is not None and hasattr(pyautogui, function_name):
             # Execute the corresponding pyautogui function i.e. Keyboard or Mouse commands.
             function_to_call = getattr(pyautogui, function_name)
 
@@ -83,4 +120,3 @@ class Interpreter:
                 function_to_call(**parameters)
         else:
             print(f'No such function {function_name} in our interface\'s interpreter')
-

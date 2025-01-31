@@ -1,5 +1,7 @@
 import sys
 import threading
+import os
+import logging
 from multiprocessing import freeze_support
 
 from core import Core
@@ -36,6 +38,11 @@ class App:
     """
 
     def __init__(self):
+        # Ensure DISPLAY is set before importing other modules
+        if 'DISPLAY' not in os.environ:
+            logging.warning("No DISPLAY environment variable found. Setting up virtual display.")
+            os.environ['DISPLAY'] = ':99'
+
         self.core = Core()
         self.ui = UI()
 

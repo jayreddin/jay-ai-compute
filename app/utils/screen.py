@@ -2,20 +2,40 @@ import base64
 import io
 import os
 import tempfile
+import logging
+from PIL import Image, ImageDraw
 
-import pyautogui
-from PIL import Image
+try:
+    import pyautogui
+    PYAUTOGUI_AVAILABLE = True
+except Exception as e:
+    logging.warning(f"Could not import pyautogui: {e}")
+    logging.warning("Running in headless mode. Screen capture features will be disabled.")
+    PYAUTOGUI_AVAILABLE = False
+    pyautogui = None
+
 from utils.settings import Settings
 
 
 class Screen:
     def get_size(self) -> tuple[int, int]:
+        if not PYAUTOGUI_AVAILABLE:
+            logging.warning("Screen size detection not available in headless mode.")
+            return (0, 0)
         screen_width, screen_height = pyautogui.size()  # Get the size of the primary monitor.
         return screen_width, screen_height
 
     def get_screenshot(self) -> Image.Image:
+        if not PYAUTOGUI_AVAILABLE:
+            logging.warning("Screenshot capture not available in headless mode. Generating a placeholder image.")
+            # Create a more informative placeholder image
+            img = Image.new('RGB', (800, 600), color='lightgray')
+            draw = ImageDraw.Draw(img)
+            draw.text((50, 250), "Screenshot Unavailable in Headless Mode", fill='black')
+            return img
+
         # Enable screen recording from settings
-        img = pyautogui.screenshot()  # Takes roughly 100ms # img.show()
+        img = pyautogui.screenshot()  # Takes roughly 100ms
         return img
 
     def get_screenshot_in_base64(self) -> str:

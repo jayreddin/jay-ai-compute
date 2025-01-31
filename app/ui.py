@@ -2,6 +2,7 @@ import os
 import sys
 import importlib.util
 import threading
+from turtle import hideturtle
 import webbrowser
 from multiprocessing import Queue
 from pathlib import Path
@@ -39,10 +40,138 @@ class UI:
 
         def __init__(self, parent):
             super().__init__(parent)
-            self.title('Advanced Settings')
-            self.minsize(300, 450)  # Match Settings window dimensions
+            self.title('AI Model Settings')
+            
+            # Initialize settings
             self.settings = Settings()
-            self.create_widgets()
+            
+            # Set precise window dimensions
+            window_width = 370
+            window_height = 820
+            
+            # Set window size and minimum size
+            self.geometry(f'{window_width}x{window_height}')
+            self.minsize(window_width, window_height)
+            
+            # Ensure window doesn't expand unnecessarily
+            self.grid_propagate(False)
+            
+            # Position the window directly on top of the parent window
+            self.transient(parent)  # Set as a child window of the parent
+            self.grab_set()  # Make modal
+            
+            # Calculate parent window position and center this window
+            parent_x = parent.winfo_rootx()
+            parent_y = parent.winfo_rooty()
+            parent_width = parent.winfo_width()
+            parent_height = parent.winfo_height()
+            
+            x = parent_x + (parent_width - window_width) // 2
+            y = parent_y + (parent_height - window_height) // 2
+            
+            self.geometry(f'+{x}+{y}')
+            
+            # Main content frame
+            content_frame = ttk.Frame(self)
+            content_frame.pack(fill='both', expand=True, padx=10, pady=10)
+            content_frame.columnconfigure(0, weight=1)
+
+            # OpenAI Card-like Frame
+            openai_frame = ttk.LabelFrame(content_frame, text='OpenAI', bootstyle='primary')
+            openai_frame.grid(row=0, column=0, sticky='ew', padx=5, pady=(0, 10))
+            openai_frame.columnconfigure(0, weight=1)
+
+            # OpenAI API Key Input
+            label_api = ttk.Label(openai_frame, text='OpenAI API Key:', bootstyle="primary")
+            label_api.grid(row=0, column=0, sticky='w', padx=5, pady=(10, 5))
+            self.api_key_entry = ttk.Entry(openai_frame, width=50)
+            self.api_key_entry.grid(row=1, column=0, sticky='ew', padx=5, pady=(0, 10))
+
+            # Model Selection for OpenAI
+            ttk.Label(openai_frame, text='Select OpenAI Model:', bootstyle="primary").grid(row=2, column=0, sticky='w', padx=5, pady=(10, 5))
+            
+            # Model selection radio buttons
+            self.model_var = ttk.StringVar(value='gpt-4o')  # default selection
+            models = [
+                ('GPT-4o (Default. Medium-Accurate, Medium-Fast)', 'gpt-4o'),
+                ('GPT-4o-mini (Cheapest, Fastest)', 'gpt-4o-mini'),
+                ('GPT-4v (Deprecated. Most-Accurate, Slowest)', 'gpt-4-vision-preview'),
+                ('GPT-4-Turbo (Least Accurate, Fast)', 'gpt-4-turbo')
+            ]
+            
+            # Create a frame to hold the radio buttons
+            radio_frame = ttk.Frame(openai_frame)
+            radio_frame.grid(row=3, column=0, sticky='ew', padx=5, pady=(0, 10))
+            
+            for text, value in models:
+                ttk.Radiobutton(
+                    radio_frame, 
+                    text=text, 
+                    value=value, 
+                    variable=self.model_var, 
+                    bootstyle="info"
+                ).pack(anchor=ttk.W, pady=5)
+
+            # Save Button for OpenAI Settings
+            save_model_button = ttk.Button(
+                openai_frame, 
+                text='Save OpenAI Settings', 
+                bootstyle="success", 
+                command=self.save_openai_settings
+            )
+            save_model_button.grid(row=4, column=0, sticky='ew', padx=5, pady=10)
+
+            # Custom AI Model Card-like Frame
+            custom_model_frame = ttk.LabelFrame(content_frame, text='Custom AI Model', bootstyle='primary')
+            custom_model_frame.grid(row=1, column=0, sticky='ew', padx=5, pady=(0, 10))
+            custom_model_frame.columnconfigure(0, weight=1)
+
+            # Custom Model Selection
+            ttk.Label(custom_model_frame, text='Custom Model:', bootstyle="primary").grid(row=0, column=0, sticky='w', padx=5, pady=(10, 5))
+            self.custom_model_var = ttk.StringVar(value='custom')
+            ttk.Radiobutton(
+                custom_model_frame, 
+                text='Enable Custom Model', 
+                value='custom', 
+                variable=self.custom_model_var, 
+                bootstyle="info"
+            ).grid(row=1, column=0, sticky='w', padx=5, pady=(0, 10))
+
+            # Custom Base URL Input
+            label_base_url = ttk.Label(custom_model_frame, text='Custom Base URL:', bootstyle="secondary")
+            label_base_url.grid(row=2, column=0, sticky='w', padx=5, pady=(10, 5))
+            self.base_url_entry = ttk.Entry(custom_model_frame, width=50)
+            self.base_url_entry.grid(row=3, column=0, sticky='ew', padx=5, pady=(0, 10))
+
+            # Custom Base Model Input
+            label_base_model = ttk.Label(custom_model_frame, text='Custom Base Model:', bootstyle="secondary")
+            label_base_model.grid(row=4, column=0, sticky='w', padx=5, pady=(10, 5))
+            self.base_model_entry = ttk.Entry(custom_model_frame, width=50)
+            self.base_model_entry.grid(row=5, column=0, sticky='ew', padx=5, pady=(0, 10))
+
+            # Custom Model API Key Input
+            label_custom_model_api_key = ttk.Label(custom_model_frame, text='Custom Model API Key:', bootstyle="secondary")
+            label_custom_model_api_key.grid(row=6, column=0, sticky='w', padx=5, pady=(10, 5))
+            self.custom_model_api_key_entry = ttk.Entry(custom_model_frame, width=50)
+            self.custom_model_api_key_entry.grid(row=7, column=0, sticky='ew', padx=5, pady=(0, 10))
+
+            # Save Button for Custom Model Settings
+            save_custom_model_button = ttk.Button(
+                custom_model_frame, 
+                text='Save Custom Model Settings', 
+                bootstyle="warning", 
+                command=self.save_custom_model_settings
+            )
+            save_custom_model_button.grid(row=8, column=0, sticky='ew', padx=5, pady=10)
+
+            # Reload Button for Model Settings
+            reload_button = ttk.Button(
+                content_frame, 
+                text='Reload Model Selected', 
+                bootstyle="info-outline", 
+                command=self.reload_button
+            )
+            reload_button.grid(row=2, column=0, sticky='ew', padx=5, pady=(0, 10))
 
             # Populate UI
             settings_dict = self.settings.get_dict()
@@ -58,71 +187,8 @@ class UI:
             if 'custom_model_api_key' in settings_dict:
                 self.custom_model_api_key_entry.insert(0, settings_dict['custom_model_api_key'])
 
-        def create_widgets(self) -> None:
-            # OpenAI API Key Input (Top of the page)
-            label_api = ttk.Label(self, text='OpenAI API Key:', bootstyle="primary")
-            label_api.pack(pady=(10, 5))
-            self.api_key_entry = ttk.Entry(self, width=50)
-            self.api_key_entry.pack(pady=(0, 10))
-
-            # Model Selection for OpenAI
-            ttk.Label(self, text='Select OpenAI Model:', bootstyle="primary").pack(pady=(10, 5))
-            
-            # Create a frame to hold the radio buttons
-            radio_frame = ttk.Frame(self)
-            radio_frame.pack(padx=20, pady=(0, 10))
-
-            # Model selection radio buttons
-            self.model_var = ttk.StringVar(value='gpt-4o')  # default selection
-            models = [
-                ('GPT-4o (Default. Medium-Accurate, Medium-Fast)', 'gpt-4o'),
-                ('GPT-4o-mini (Cheapest, Fastest)', 'gpt-4o-mini'),
-                ('GPT-4v (Deprecated. Most-Accurate, Slowest)', 'gpt-4-vision-preview'),
-                ('GPT-4-Turbo (Least Accurate, Fast)', 'gpt-4-turbo'),
-                ('Custom Model', 'custom')
-            ]
-            for text, value in models:
-                ttk.Radiobutton(radio_frame, text=text, value=value, variable=self.model_var, 
-                                bootstyle="info").pack(anchor=ttk.W, pady=5)
-
-            # Save Button for API Key and Model
-            save_model_button = ttk.Button(self, text='Save OpenAI Settings', 
-                                           bootstyle="success", command=self.save_button)
-            save_model_button.pack(pady=10)
-
-            # Separator
-            ttk.Separator(self, bootstyle="primary").pack(fill='x', pady=10)
-
-            # Custom Base URL Input
-            label_base_url = ttk.Label(self, text='Custom Base URL:', bootstyle="secondary")
-            label_base_url.pack(pady=(10, 5))
-            self.base_url_entry = ttk.Entry(self, width=50)
-            self.base_url_entry.pack(pady=(0, 10))
-
-            # Custom Base Model Input
-            label_base_model = ttk.Label(self, text='Custom Base Model:', bootstyle="secondary")
-            label_base_model.pack(pady=(10, 5))
-            self.base_model_entry = ttk.Entry(self, width=50)
-            self.base_model_entry.pack(pady=(0, 10))
-
-            # Custom Model API Key Input
-            label_custom_model_api_key = ttk.Label(self, text='Custom Model API Key:', bootstyle="secondary")
-            label_custom_model_api_key.pack(pady=(10, 5))
-            self.custom_model_api_key_entry = ttk.Entry(self, width=50)
-            self.custom_model_api_key_entry.pack(pady=(0, 10))
-
-            # Save Button for Custom Model Settings
-            save_custom_model_button = ttk.Button(self, text='Save Custom Model Settings', 
-                                                  bootstyle="warning", command=self.save_custom_model_button)
-            save_custom_model_button.pack(pady=10)
-
-             # Reload Button for Custom Model Settings
-            reload_button = ttk.Button(self, text='Reload Custom Model Settings', 
-                                       bootstyle="secondary-outline", command=self.reload_button)
-            reload_button.pack(pady=10)
-
-        def save_button(self) -> None:
-            # Save settings from Advanced Settings
+        def save_openai_settings(self) -> None:
+            # Save OpenAI specific settings
             settings_dict = {}
             
             # Save API Key if present
@@ -131,48 +197,21 @@ class UI:
             # Save Model if present
             model = self.model_var.get()
             
-            # Check if the selected model is a GPT model
-            gpt_models = ['gpt-4o', 'gpt-4o-mini', 'gpt-4-vision-preview', 'gpt-4-turbo']
-            
-            # Save API key based on model selection
-            if model in gpt_models and api_key:
-                # For standard GPT models, use the OpenAI API key
+            if api_key:
                 settings_dict['api_key'] = api_key
-            elif model == 'custom':
-                # For custom model, use the custom model API key
-                custom_model_api_key = self.custom_model_api_key_entry.get().strip()
-                if custom_model_api_key:
-                    settings_dict['api_key'] = custom_model_api_key
             
-            # Always save the model
             settings_dict['model'] = model
-            
-            # Save Base URL if present
-            base_url = self.base_url_entry.get().strip()
-            if base_url:
-                settings_dict['base_url'] = base_url
-            
-            # Save Base Model if present
-            base_model = self.base_model_entry.get().strip()
-            if base_model:
-                settings_dict['base_model'] = base_model
-                settings_dict['model'] = base_model
             
             # Save settings
             self.settings.save_settings_to_file(settings_dict)
             
             # Update model display label in main window
             if hasattr(self, 'parent') and hasattr(self.parent, 'model_display_label'):
-                display_model = base_model if base_model else model
-                self.parent.model_display_label.configure(text=f"Current Model: {display_model}")
+                self.parent.model_display_label.configure(text=f"Current Model: {model}")
             
             self.destroy()
 
-        def reload_button(self) -> None:
-            # Add your reload logic here
-            pass
-
-        def save_custom_model_button(self) -> None:
+        def save_custom_model_settings(self) -> None:
             # Save settings for Custom Model
             settings_dict = {}
             
@@ -186,9 +225,6 @@ class UI:
             if base_model:
                 settings_dict['base_model'] = base_model
                 settings_dict['model'] = base_model
-            else:
-                # If no base model is provided, set to a default custom model
-                settings_dict['model'] = 'Custom Model'
             
             # Save Custom Model API Key if present
             custom_model_api_key = self.custom_model_api_key_entry.get().strip()
@@ -200,25 +236,25 @@ class UI:
             # Save settings
             self.settings.save_settings_to_file(settings_dict)
             
-            # Update the model selection and display
-            if base_model:
-                self.model_var.set(base_model)
-            else:
-                self.model_var.set('Custom Model')
-            
-            # Update model display label in main window if possible
+            # Update model display label in main window
             if hasattr(self, 'parent') and hasattr(self.parent, 'model_display_label'):
                 display_model = base_model if base_model else 'Custom Model'
                 self.parent.model_display_label.configure(text=f"Current Model: {display_model}")
             
-            # Close the window
             self.destroy()
 
         def reload_button(self) -> None:
-            # Reload settings from the settings file
+            # Reload settings from file
             settings_dict = self.settings.get_dict()
             
-            # Restore previous settings
+            # Repopulate UI with current settings
+            if 'api_key' in settings_dict:
+                self.api_key_entry.delete(0, 'end')
+                self.api_key_entry.insert(0, settings_dict['api_key'])
+            
+            if 'model' in settings_dict:
+                self.model_var.set(settings_dict['model'])
+            
             if 'base_url' in settings_dict:
                 self.base_url_entry.delete(0, 'end')
                 self.base_url_entry.insert(0, settings_dict['base_url'])
@@ -239,11 +275,121 @@ class UI:
         def __init__(self, parent):
             super().__init__(parent)
             self.title('Settings')
-            self.minsize(300, 450)
-            self.available_themes = ['darkly', 'cyborg', 'journal', 'solar', 'superhero']
-            self.create_widgets()
-
+            
+            # Initialize settings
             self.settings = Settings()
+            
+            # Set precise window dimensions
+            window_width = 370
+            window_height = 450
+            
+            # Set window size and minimum size
+            self.geometry(f'{window_width}x{window_height}')
+            self.minsize(window_width, window_height)
+            
+            # Ensure window doesn't expand unnecessarily
+            self.grid_propagate(False)
+            
+            # Position the window directly on top of the parent window
+            self.transient(parent)  # Set as a child window of the parent
+            self.grab_set()  # Make modal
+            
+            # Calculate parent window position and center this window
+            parent_x = parent.winfo_rootx()
+            parent_y = parent.winfo_rooty()
+            parent_width = parent.winfo_width()
+            parent_height = parent.winfo_height()
+            
+            x = parent_x + (parent_width - window_width) // 2
+            y = parent_y + (parent_height - window_height) // 2
+            
+            self.geometry(f'+{x}+{y}')
+            
+            # Main content frame
+            content_frame = ttk.Frame(self)
+            content_frame.pack(fill='both', expand=True, padx=10, pady=10)
+            content_frame.columnconfigure(0, weight=1)
+
+            # Browser Selection with card-like border
+            browser_frame = ttk.LabelFrame(content_frame, text='Default Browser:', bootstyle='primary')
+            browser_frame.grid(row=0, column=0, sticky='ew', padx=5, pady=(0, 10))
+            browser_frame.columnconfigure(0, weight=1)
+            
+            self.browser_combobox = ttk.Combobox(
+                browser_frame, 
+                values=['Chrome', 'Firefox', 'Safari', 'Edge', 'Default'], 
+                state='readonly'
+            )
+            self.browser_combobox.grid(row=0, column=0, sticky='ew', padx=5, pady=5)
+
+            # Theme Selection with card-like border
+            theme_frame = ttk.LabelFrame(content_frame, text='Theme:', bootstyle='primary')
+            theme_frame.grid(row=1, column=0, sticky='ew', padx=5, pady=(0, 10))
+            theme_frame.columnconfigure(0, weight=1)
+            
+            self.available_themes = ['darkly', 'cyborg', 'journal', 'solar', 'superhero']
+            self.theme_combobox = ttk.Combobox(
+                theme_frame, 
+                values=self.available_themes, 
+                state='readonly'
+            )
+            self.theme_combobox.grid(row=0, column=0, sticky='ew', padx=5, pady=5)
+            self.theme_combobox.bind('<<ComboboxSelected>>', self.on_theme_change)
+
+            # Ding Sound Toggle
+            self.play_ding = ttk.IntVar(value=0)
+            play_ding_check = ttk.Checkbutton(
+                content_frame, 
+                text='Play Ding on Completion', 
+                variable=self.play_ding,
+                bootstyle="success-round-toggle"
+            )
+            play_ding_check.grid(row=2, column=0, sticky='w', padx=5, pady=(0, 10))
+
+            # Custom LLM Guidance with card-like border
+            llm_frame = ttk.LabelFrame(content_frame, text='Custom LLM Guidance:', bootstyle='primary')
+            llm_frame.grid(row=3, column=0, sticky='ew', padx=5, pady=(0, 10))
+            llm_frame.columnconfigure(0, weight=1)
+            
+            self.llm_instructions_text = ttk.Text(
+                llm_frame, 
+                height=4, 
+                wrap=ttk.WORD
+            )
+            self.llm_instructions_text.grid(row=0, column=0, sticky='ew', padx=5, pady=5)
+
+            # Buttons Frame (Reload and AI Model Settings)
+            buttons_frame = ttk.Frame(content_frame)
+            buttons_frame.grid(row=4, column=0, sticky='ew', padx=5, pady=(0, 10))
+            buttons_frame.columnconfigure(0, weight=1)
+            buttons_frame.columnconfigure(1, weight=1)
+
+            # Reload Button (changed to blue)
+            reload_button = ttk.Button(
+                buttons_frame, 
+                text='Reload Model', 
+                bootstyle="info-outline", 
+                command=self.reload_button
+            )
+            reload_button.grid(row=0, column=0, sticky='ew', padx=(0, 5))
+
+            # AI Model Settings Button
+            advanced_settings_button = ttk.Button(
+                buttons_frame, 
+                text='AI Model Settings', 
+                bootstyle="info-outline", 
+                command=self.open_advanced_settings
+            )
+            advanced_settings_button.grid(row=0, column=1, sticky='ew', padx=(5, 0))
+
+            # Save Settings Button
+            save_button = ttk.Button(
+                content_frame, 
+                text='Save Settings', 
+                bootstyle="success", 
+                command=self.save_button
+            )
+            save_button.grid(row=5, column=0, sticky='ew', padx=5, pady=(0, 10))
 
             # Populate UI
             settings_dict = self.settings.get_dict()
@@ -256,101 +402,43 @@ class UI:
                 self.llm_instructions_text.insert('1.0', settings_dict['custom_llm_instructions'])
             self.theme_combobox.set(settings_dict.get('theme', 'superhero'))
 
-        def create_widgets(self) -> None:
-            # Label for Browser Choice
-            label_browser = ttk.Label(self, text='Choose Default Browser:', bootstyle="info")
-            label_browser.pack(pady=10)
-            self.browser_var = ttk.StringVar()
-            self.browser_combobox = ttk.Combobox(self, textvariable=self.browser_var,
-                                                 values=['Safari', 'Firefox', 'Chrome'])
-            self.browser_combobox.pack(pady=5)
-            self.browser_combobox.set('Choose Browser')
+        def on_theme_change(self, event=None):
+            # Theme change logic remains the same
+            theme_name = self.theme_combobox.get()
+            self.change_theme(theme_name)
 
-            # Label for Custom LLM Guidance
-            label_llm = ttk.Label(self, text='Custom LLM Guidance:', bootstyle="info")
-            label_llm.pack(pady=10)
+        def save_button(self):
+            # Save settings
+            settings_dict = {}
+            settings_dict['default_browser'] = self.browser_combobox.get()
+            settings_dict['play_ding_on_completion'] = bool(self.play_ding.get())
+            settings_dict['theme'] = self.theme_combobox.get()
+            settings_dict['custom_llm_instructions'] = self.llm_instructions_text.get('1.0', 'end-1c')
 
-            # Text Box for Custom LLM Instructions
-            self.llm_instructions_text = ttk.Text(self, height=10, width=50)
-            self.llm_instructions_text.pack(padx=(10, 10), pady=(0, 10))
-
-            # Checkbox for "Play Ding" option
-            self.play_ding = ttk.IntVar()
-            play_ding_checkbox = ttk.Checkbutton(self, text="Play Ding on Completion", variable=self.play_ding,
-                                                 bootstyle="round-toggle")
-            play_ding_checkbox.pack(pady=10)
-
-            # Theme Selection Widgets
-            label_theme = ttk.Label(self, text='UI Theme:', bootstyle="info")
-            label_theme.pack()
-            self.theme_var = ttk.StringVar()
-            self.theme_combobox = ttk.Combobox(self, textvariable=self.theme_var, values=self.available_themes,
-                                               state="readonly")
-            self.theme_combobox.pack(pady=5)
-            self.theme_combobox.set('superhero')
-            # Add binding for immediate theme change
-            self.theme_combobox.bind('<<ComboboxSelected>>', self.on_theme_change)
-
-            # Save Button
-            save_button = ttk.Button(self, text='Save Settings', bootstyle="success", command=self.save_button)
-            save_button.pack(pady=(10, 5))
-
-            # Reload Button
-            reload_button = ttk.Button(self, text='Reload', bootstyle="warning-outline", command=self.reload_button)
-            reload_button.pack(pady=10)
-
-            # Button to open Advanced Settings
-            advanced_settings_button = ttk.Button(self, text='Advanced Settings', bootstyle="info",
-                                                  command=self.open_advanced_settings)
-            advanced_settings_button.pack(pady=(0, 10))
-
-            # Hyperlink Label
-            link_label = ttk.Label(self, text='Setup Instructions', bootstyle="primary")
-            link_label.pack()
-            link_label.bind('<Button-1>', lambda e: open_link(
-                'https://github.com/AmberSahdev/Open-Interface?tab=readme-ov-file#setup-%EF%B8%8F'))
-
-            # Check for updates Label
-            update_label = ttk.Label(self, text='Check for Updates', bootstyle="primary")
-            update_label.pack()
-            update_label.bind('<Button-1>', lambda e: open_link(
-                'https://github.com/AmberSahdev/Open-Interface/releases/latest'))
-
-            # Version Label
-            version_label = ttk.Label(self, text=f'Version: {str(version)}', font=('Helvetica', 10))
-            version_label.pack(side="bottom", pady=10)
-
-        def on_theme_change(self, event=None) -> None:
-            # Apply theme immediately when selected
-            theme = self.theme_var.get()
-            self.master.change_theme(theme)
-
-        def save_button(self) -> None:
-            theme = self.theme_var.get()
-            default_browser = self.browser_var.get()
-            settings_dict = {
-                'default_browser': default_browser,
-                'play_ding_on_completion': bool(self.play_ding.get()),
-                'custom_llm_instructions': self.llm_instructions_text.get("1.0", "end-1c").strip(),
-                'theme': theme
-            }
-
-            # Remove redundant theme change since it's already applied
+            # Save to settings file
             self.settings.save_settings_to_file(settings_dict)
             
-            # Update model display label in the main window
-            if hasattr(self.master, 'master') and hasattr(self.master.master, 'model_display_label'):
-                self.master.master.model_display_label.config(text=f'Model: {self.master.master.settings.get_dict().get("model", "GPT-4o")}')
-            
+            # Close the settings window
             self.destroy()
 
-        def reload_button(self) -> None:
-            # Add your reload logic here
-            pass
+        def reload_button(self):
+            # Reload settings from file
+            settings_dict = self.settings.get_dict()
+            
+            # Repopulate UI with current settings
+            if 'default_browser' in settings_dict:
+                self.browser_combobox.set(settings_dict['default_browser'])
+            if 'play_ding_on_completion' in settings_dict:
+                self.play_ding.set(1 if settings_dict['play_ding_on_completion'] else 0)
+            if 'custom_llm_instructions' in settings_dict:
+                self.llm_instructions_text.delete('1.0', 'end')
+                self.llm_instructions_text.insert('1.0', settings_dict['custom_llm_instructions'])
+            self.theme_combobox.set(settings_dict.get('theme', 'superhero'))
 
         def open_advanced_settings(self):
-            # Open the advanced settings window
-            UI.AdvancedSettingsWindow(self)
+            # Open the Advanced Settings (AI Model Settings) window
+            advanced_settings_window = UI.AdvancedSettingsWindow(self)
+            advanced_settings_window.grab_set()  # Make the window modal
 
     class MainWindow(ttk.Window):
         def change_theme(self, theme_name: str) -> None:
@@ -369,8 +457,8 @@ class UI:
             self.title('J AI Compute')
             
             # Set precise window dimensions
-            window_width = 350  # Reduced to 300
-            window_height = 780  # Set to 700
+            window_width = 370  # Reduced to 300
+            window_height = 820  # Set to 700
             
             # Set window size and minimum size
             self.geometry(f'{window_width}x{window_height}')
@@ -734,7 +822,12 @@ class UI:
                     'interpreting',
                     'generating',
                     'retrieving',
-                    'parsing'
+                    'parsing',
+                    'exception unable',
+                    'user message',
+                    'typing',
+                    'please send',
+                    'the user has already'
                 ]
 
                 # Check if the message should be filtered
