@@ -1,12 +1,18 @@
 import sys
-import threading
 import os
+
+# Add project root to Python path
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+import threading
 import logging
 from multiprocessing import freeze_support
 import queue
 
 from core import Core
-from ui import UI
+from app.ui import UI
 
 
 class App:

@@ -2,26 +2,201 @@ import os
 import sys
 import importlib.util
 import threading
-from turtle import hideturtle
 import webbrowser
 from multiprocessing import Queue
 from pathlib import Path
 from datetime import datetime
-from typing import Union
+from typing import Union, Optional, Dict, Any
 import re
+import logging
+import traceback
 
-# import speech_recognition as sr
 import ttkbootstrap as ttk
 from PIL import Image, ImageTk
+from contextlib import contextmanager
 
-from llm import DEFAULT_MODEL_NAME
-from utils.settings import Settings
-from version import version
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),  # Output to console
+        logging.FileHandler('ui_app.log', encoding='utf-8')  # Output to file
+    ]
+)
+logger = logging.getLogger(__name__)
 
+@contextmanager
+def text_widget_editable(text_widget):
+    """
+    Context manager to temporarily make a text widget editable and then read-only.
+    
+    :param text_widget: Tkinter text widget to manage
+    """
+    try:
+        text_widget.configure(state='normal')
+        yield text_widget
+    finally:
+        text_widget.configure(state='disabled')
 
-def open_link(url) -> None:
-    webbrowser.open_new(url)
+class UILoggingMixin:
+    """
+    A mixin class providing advanced logging capabilities for UI components.
+    """
+    
+    def resize_image_thumbnail(self, image: Image.Image, max_width: int = 300) -> Image.Image:
+        """
+        Resize an image to a thumbnail while maintaining aspect ratio.
+        
+        :param image: PIL Image to resize
+        :param max_width: Maximum width for the thumbnail
+        :return: Resized PIL Image
+        """
+        width_percent = (max_width / float(image.size[0]))
+        height_size = int((float(image.size[1]) * float(width_percent)))
+        return image.resize((max_width, height_size), Image.LANCZOS)
+    
+    def update_output_log(self, message: str, screenshot: Optional[Image.Image] = None) -> None:
+        """
+        Update the output log with a message and optional screenshot.
+        
+        :param message: Text message to display in the output log
+        :param screenshot: Optional PIL Image object to display as a thumbnail
+        """
+        try:
+            with text_widget_editable(self.output_log_text) as output_log:
+                # Clear previous content if message is empty
+                if not message and not screenshot:
+                    output_log.delete('1.0', 'end')
+                
+                # Insert message
+                if message:
+                    output_log.insert('1.0', f"{message}\n")
+                
+                # Insert screenshot thumbnail if provided
+                if screenshot:
+                    try:
+                        # Resize screenshot to a thumbnail
+                        thumbnail = self.resize_image_thumbnail(screenshot)
+                        
+                        # Convert PIL Image to PhotoImage for Tkinter
+                        photo = ImageTk.PhotoImage(thumbnail)
+                        
+                        # Insert the image into the text widget
+                        output_log.image_create('1.0', image=photo)
+                        # Keep a reference to prevent garbage collection
+                        output_log.image = photo
+                        
+                        # Add a newline after the image
+                        output_log.insert('1.0', '\n')
+                    
+                    except Exception as img_error:
+                        logger.error(f"Failed to process screenshot: {img_error}")
+                        output_log.insert('1.0', f"[ERROR] Failed to process screenshot\n")
+                
+                # Scroll to the top
+                output_log.see('1.0')
+        
+        except Exception as e:
+            logger.error(f"Error in update_output_log: {e}")
+    
+    def log_system_action(self, action_type: str, details: Union[Dict[str, Any], str, None] = None) -> None:
+        """
+        Log system actions and status messages to the Output Log
+        
+        :param action_type: Type of action being performed
+        :param details: Optional details as dict, string, or None
+        """
+        def format_details(details):
+            if isinstance(details, dict):
+                # Convert dictionary to a readable string
+                return ', '.join(f"{k}={v}" for k, v in details.items())
+            elif isinstance(details, str):
+                return details
+            return ''
 
+        def log_action():
+            # Prepare the log message
+            timestamp = datetime.now().strftime('%H:%M:%S')
+            formatted_details = format_details(details)
+            
+            # Construct log entry
+            if formatted_details:
+                log_entry = f"[{timestamp}] {action_type}: {formatted_details}\n"
+            else:
+                log_entry = f"[{timestamp}] {action_type}\n"
+            
+            # Thread-safe log update using context manager
+            try:
+                with text_widget_editable(self.output_log_text) as output_log:
+                    output_log.insert('1.0', log_entry)
+                    output_log.see('1.0')
+            except Exception as e:
+                logger.error(f"Logging error: {e}")
+
+        # Ensure thread-safe execution
+        if threading.current_thread() is threading.main_thread():
+            log_action()
+        else:
+            self.output_log_text.after(0, log_action)
+    
+    def display_screenshot_in_output_log(self) -> None:
+        """
+        Capture and display the current screenshot in the Output Log.
+        
+        This method uses the Screen utility to capture a screenshot and then
+        displays it in the output log text widget.
+        
+        Handles potential import and screenshot capture errors gracefully.
+        """
+        try:
+            from utils.screen import Screen
+        except ImportError:
+            self.update_output_log("Error: Screen utility not available")
+            return
+
+        try:
+            # Capture screenshot with error handling for screenshot capture
+            screenshot = Screen().get_screenshot()
+            
+            if screenshot is None:
+                self.update_output_log("No screenshot could be captured")
+                return
+            
+            # Display screenshot in output log with a descriptive message
+            self.update_output_log("Screenshot captured:", screenshot)
+
+        except Exception as e:
+            # Log any errors that occur during screenshot capture or display
+            error_details = f"Unexpected error capturing screenshot: {str(e)}\n{traceback.format_exc()}"
+            self.update_output_log(error_details)
+    
+    def mock_system_action(self, action_name: str, *args, **kwargs) -> None:
+        """
+        Generic mock method for system actions with flexible logging
+        
+        :param action_name: Name of the action being performed
+        :param args: Positional arguments
+        :param kwargs: Keyword arguments
+        """
+        # Combine args and kwargs for logging
+        details = {}
+        if args:
+            details['args'] = args
+        if kwargs:
+            details.update(kwargs)
+        
+        # Log the action
+        self.log_system_action(action_name, details)
+
+    # Specific mock methods for common actions
+    def mock_pyautogui_write(self, text: str, interval: float = 0.05) -> None:
+        """Mock pyautogui.write with logging"""
+        self.mock_system_action('pyautogui.write', text=text, interval=interval)
+
+    def mock_pyautogui_press(self, keys: str) -> None:
+        """Mock pyautogui.press with logging"""
+        self.mock_system_action('pyautogui.press', keys=keys)
 
 class UI:
     def __init__(self):
@@ -33,7 +208,7 @@ class UI:
     def display_current_status(self, text: str):
         self.main_window.update_message(text)
 
-    class AdvancedSettingsWindow(ttk.Toplevel):
+    class AdvancedSettingsWindow(ttk.Toplevel, UILoggingMixin):
         """
         Self-contained settings sub-window for the UI
         """
@@ -267,7 +442,7 @@ class UI:
                 self.custom_model_api_key_entry.delete(0, 'end')
                 self.custom_model_api_key_entry.insert(0, settings_dict['custom_model_api_key'])
 
-    class SettingsWindow(ttk.Toplevel):
+    class SettingsWindow(ttk.Toplevel, UILoggingMixin):
         """
         Self-contained settings sub-window for the UI
         """
@@ -440,7 +615,7 @@ class UI:
             advanced_settings_window = UI.AdvancedSettingsWindow(self)
             advanced_settings_window.grab_set()  # Make the window modal
 
-    class MainWindow(ttk.Window):
+    class MainWindow(ttk.Window, UILoggingMixin):
         def change_theme(self, theme_name: str) -> None:
             self.style.theme_use(theme_name)
 
@@ -898,59 +1073,289 @@ class UI:
             self.after(0, show_thinking)
             self.after(1000, update_text)
 
-        def update_output_log(self, message: str, screenshot: Image = None) -> None:
+        def open_mobile_interface(self):
             """
-            Update the output log with a message and optional screenshot.
+            Open the mobile interface and display QR code.
             
-            :param message: Text message to display in the output log
-            :param screenshot: Optional PIL Image object to display as a thumbnail
+            Creates a Gradio server and displays QR code in a popup window.
+            """
+            def launch_mobile_server():
+                try:
+                    # Add project root to Python path
+                    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+                    if project_root not in sys.path:
+                        sys.path.insert(0, project_root)
+
+                    # Dynamically import mobile_server module
+                    mobile_server_path = os.path.join(os.path.dirname(__file__), 'mobile_server.py')
+                    spec = importlib.util.spec_from_file_location("mobile_server", mobile_server_path)
+                    mobile_server_module = importlib.util.module_from_spec(spec)
+                    sys.modules["mobile_server"] = mobile_server_module
+                    spec.loader.exec_module(mobile_server_module)
+
+                    # Create mobile server instance with current core
+                    core_instance = getattr(self, 'core', None)
+                    if core_instance is None:
+                        from core import Core
+                        core_instance = Core()
+
+                    mobile_server = mobile_server_module.MobileServer(core_instance=core_instance)
+
+                    # Start server and get public URL
+                    public_url = mobile_server.start()
+
+                    # Ensure we have a valid URL
+                    if not public_url:
+                        raise ValueError("Failed to start mobile server")
+
+                    # Generate QR code
+                    qr_code_path = mobile_server.generate_qr_code(public_url)
+
+                    # Display QR code in a popup window (thread-safe)
+                    def update_ui():
+                        try:
+                            # Create QR Code Popup Window
+                            qr_popup = ttk.Toplevel(self)
+                            qr_popup.title("Mobile Interface QR Code")
+                            qr_popup.geometry("400x400")
+                            qr_popup.resizable(False, False)
+
+                            # Position the popup next to the main window
+                            main_window_geo = self.geometry()
+                            main_x = self.winfo_x()
+                            main_y = self.winfo_y()
+                            main_width = self.winfo_width()
+
+                            # Parse main window geometry
+                            geo_match = re.match(r'(\d+)x(\d+)\+(\d+)\+(\d+)', main_window_geo)
+                            if geo_match:
+                                # Position popup to the right of the main window
+                                popup_x = main_x + main_width + 10
+                                popup_y = main_y
+                                qr_popup.geometry(f"+{popup_x}+{popup_y}")
+
+                            # Frame to organize content
+                            content_frame = ttk.Frame(qr_popup)
+                            content_frame.pack(expand=True, fill='both', padx=10, pady=10)
+
+                            # QR Code Label
+                            qr_label = ttk.Label(content_frame)
+                            qr_label.pack(pady=(0, 10), expand=True)
+
+                            # Load and convert QR code image
+                            qr_image = Image.open(qr_code_path)
+                            qr_photo = ImageTk.PhotoImage(qr_image)
+                            
+                            # Insert the image into the text widget
+                            qr_label.configure(image=qr_photo)
+                            qr_label.image = qr_photo  # Keep a reference
+
+                            # URL Label with improved styling
+                            url_label = ttk.Label(
+                                content_frame, 
+                                text=f"Scan QR to Open:\n{public_url}", 
+                                font=('Arial', 8),
+                                bootstyle='secondary'
+                            )
+                            url_label.pack(pady=(5, 0))
+
+                            # Instructions Label
+                            instructions_label = ttk.Label(
+                                content_frame, 
+                                text="Open Mobile Interface", 
+                                font=('Arial', 7, 'italic'),
+                                bootstyle='light'
+                            )
+                            instructions_label.pack(pady=(2, 0))
+
+                        except Exception as ui_error:
+                            print(f"Error updating UI: {ui_error}")
+                            import traceback
+                            traceback.print_exc()
+
+                    # Schedule UI updates on the main thread
+                    self.after(0, update_ui)
+
+                    # Store mobile server for potential later use
+                    self.mobile_server = mobile_server
+
+                except Exception as e:
+                    # Log any errors with more detailed information
+                    import traceback
+                    error_message = f"Error opening mobile interface: {str(e)}\n{traceback.format_exc()}"
+                    print(error_message)
+                    self.update_output_log(error_message)
+
+            # Start mobile server in a separate thread to prevent UI freezing
+            threading.Thread(target=launch_mobile_server, daemon=True).start()
+
+        def create_reload_mobile_button(self):
+            """
+            Create a button to launch the mobile interface and generate QR code
+            
+            Returns:
+                ttk.Button: Mobile interface launch button
+            """
+            mobile_button = ttk.Button(
+                self, 
+                text="Mobile", 
+                style='primary.TButton',
+                command=self.open_mobile_interface
+            )
+            mobile_button.pack(side='left', padx=5, pady=5)
+            return mobile_button
+
+        def create_widgets(self):
+            # Existing widget creation code...
+            
+            # Add reload mobile button after save button
+            self.reload_mobile_btn = self.create_reload_mobile_button()
+
+        def reload_model_settings(self) -> None:
+            # Reload settings from the settings file
+            settings = Settings()
+            settings_dict = settings.get_dict()
+            
+            # Update model display
+            if 'model' in settings_dict:
+                model = settings_dict['model']
+                self.model_display_label.configure(text=f"Current Model: {model}")
+            
+            # Update OpenAI API key and base URL if needed
+            if 'base_url' in settings_dict:
+                os.environ['OPENAI_BASE_URL'] = settings_dict['base_url']
+
+        def display_screenshot_in_output_log(self) -> None:
+            """
+            Capture and display the current screenshot in the Output Log.
+            
+            This method uses the Screen utility to capture a screenshot and then
+            displays it in the output log text widget.
+            
+            Handles potential import and screenshot capture errors gracefully.
             """
             try:
-                # Enable text widget for editing
-                self.output_log_text.config(state='normal')
+                from utils.screen import Screen
+            except ImportError:
+                self.update_output_log("Error: Screen utility not available")
+                return
+    
+            try:
+                # Capture screenshot with error handling for screenshot capture
+                screenshot = Screen().get_screenshot()
                 
-                # Clear previous content if message is empty
-                if not message and not screenshot:
-                    self.output_log_text.delete('1.0', 'end')
+                if screenshot is None:
+                    self.update_output_log("No screenshot could be captured")
+                    return
                 
-                # Insert message
-                if message:
-                    self.output_log_text.insert('1.0', f"{message}\n")
-                
-                # Insert screenshot thumbnail if provided
-                if screenshot:
-                    try:
-                        # Resize screenshot to a thumbnail while maintaining aspect ratio
-                        max_width = 300  # Adjust based on your UI preferences
-                        width_percent = (max_width / float(screenshot.size[0]))
-                        height_size = int((float(screenshot.size[1]) * float(width_percent)))
-                        thumbnail = screenshot.resize((max_width, height_size), Image.LANCZOS)
-                        
-                        # Convert PIL Image to PhotoImage for Tkinter
-                        photo = ImageTk.PhotoImage(thumbnail)
-                        
-                        # Insert the image into the text widget
-                        self.output_log_text.image_create('1.0', image=photo)
-                        # Keep a reference to prevent garbage collection
-                        self.output_log_text.image = photo
-                        
-                        # Add a newline after the image
-                        self.output_log_text.insert('1.0', '\n')
-                    
-                    except Exception as img_error:
-                        self.output_log_text.insert('1.0', f"[ERROR] Failed to process screenshot: {str(img_error)}\n")
-                
-                # Scroll to the top
-                self.output_log_text.see('1.0')
-            
+                # Display screenshot in output log with a descriptive message
+                self.update_output_log("Screenshot captured:", screenshot)
+    
             except Exception as e:
-                print(f"Error in update_output_log: {e}")
-            
-            finally:
-                # Always disable text widget to make it read-only
-                self.output_log_text.config(state='disabled')
+                # Log any errors that occur during screenshot capture or display
+                error_details = f"Unexpected error capturing screenshot: {str(e)}\n{traceback.format_exc()}"
+                self.update_output_log(error_details)
 
-        def log_system_action(self, action_type: str, details: Union[dict, str, None] = None) -> None:
+        def log_system_action(self, action_type: str, details: Union[Dict[str, Any], str, None] = None) -> None:
+            """
+            Log system actions and status messages to the Output Log
+            
+            :param action_type: Type of action being performed
+            :param details: Optional details as dict, string, or None
+            """
+            def format_details(details):
+                if isinstance(details, dict):
+                    # Convert dictionary to a readable string
+                    return ', '.join(f"{k}={v}" for k, v in details.items())
+                elif isinstance(details, str):
+                    return details
+                return ''
+
+            def log_action():
+                # Prepare the log message
+                timestamp = datetime.now().strftime('%H:%M:%S')
+                formatted_details = format_details(details)
+                
+                # Construct log entry
+                if formatted_details:
+                    log_entry = f"[{timestamp}] {action_type}: {formatted_details}\n"
+                else:
+                    log_entry = f"[{timestamp}] {action_type}\n"
+                
+                # Thread-safe log update
+                try:
+                    self.output_log_text.configure(state='normal')
+                    self.output_log_text.insert('1.0', log_entry)
+                    self.output_log_text.see('1.0')
+                    self.output_log_text.configure(state='disabled')
+                except Exception as e:
+                    print(f"Logging error: {e}")
+
+            # Ensure thread-safe execution
+            if threading.current_thread() is threading.main_thread():
+                log_action()
+            else:
+                self.output_log_text.after(0, log_action)
+
+        def mock_system_action(self, action_name: str, *args, **kwargs) -> None:
+            """
+            Generic mock method for system actions with flexible logging
+            
+            :param action_name: Name of the action being performed
+            :param args: Positional arguments
+            :param kwargs: Keyword arguments
+            """
+            # Combine args and kwargs for logging
+            details = {}
+            if args:
+                details['args'] = args
+            if kwargs:
+                details.update(kwargs)
+            
+            # Log the action
+            self.log_system_action(action_name, details)
+
+        # Specific mock methods for common actions
+        def mock_pyautogui_write(self, text: str, interval: float = 0.05) -> None:
+            """Mock pyautogui.write with logging"""
+            self.mock_system_action('pyautogui.write', text=text, interval=interval)
+
+        def mock_pyautogui_press(self, keys: str) -> None:
+            """Mock pyautogui.press with logging"""
+            self.mock_system_action('pyautogui.press', keys=keys)
+
+        def display_screenshot_in_output_log(self) -> None:
+            """
+            Capture and display the current screenshot in the Output Log.
+            
+            This method uses the Screen utility to capture a screenshot and then
+            displays it in the output log text widget.
+            
+            Handles potential import and screenshot capture errors gracefully.
+            """
+            try:
+                from utils.screen import Screen
+            except ImportError:
+                self.update_output_log("Error: Screen utility not available")
+                return
+    
+            try:
+                # Capture screenshot with error handling for screenshot capture
+                screenshot = Screen().get_screenshot()
+                
+                if screenshot is None:
+                    self.update_output_log("No screenshot could be captured")
+                    return
+                
+                # Display screenshot in output log with a descriptive message
+                self.update_output_log("Screenshot captured:", screenshot)
+    
+            except Exception as e:
+                # Log any errors that occur during screenshot capture or display
+                error_details = f"Unexpected error capturing screenshot: {str(e)}\n{traceback.format_exc()}"
+                self.update_output_log(error_details)
+
+        def log_system_action(self, action_type: str, details: Union[Dict[str, Any], str, None] = None) -> None:
             """
             Log system actions and status messages to the Output Log
             
@@ -1188,22 +1593,5 @@ class UI:
             if 'base_url' in settings_dict:
                 os.environ['OPENAI_BASE_URL'] = settings_dict['base_url']
 
-def display_screenshot_in_output_log(self) -> None:
-    """
-    Capture and display the current screenshot in the Output Log.
-    
-    This method uses the Screen utility to capture a screenshot and then
-    displays it in the output log text widget.
-    """
-    try:
-        from utils.screen import Screen
-        
-        # Capture screenshot
-        screenshot = Screen().get_screenshot()
-        
-        # Display screenshot in output log with a descriptive message
-        self.update_output_log("Screenshot captured:", screenshot)
-    
-    except Exception as e:
-        # Log any errors that occur during screenshot capture or display
-        self.update_output_log(f"Error capturing screenshot: {str(e)}")
+from utils.settings import Settings
+from version import version
