@@ -647,7 +647,7 @@ class UI:
             self.conversation_text = ttk.Text(
                 conversation_text_frame, 
                 wrap=ttk.WORD,
-                font=('Arial', 16),  # Increased font size
+                font=('Arial', 12),  # Increased font size
                 height=6,
                 yscrollcommand=self.conversation_text_scrollbar.set
             )
@@ -710,7 +710,7 @@ class UI:
             self.output_log_text = ttk.Text(
                 output_log_text_frame, 
                 wrap=ttk.WORD,
-                font=('Arial', 16),  # Larger font
+                font=('Arial', 12),  # Larger font
                 height=6,  # Initial height
                 state='disabled',  # Read-only
                 yscrollcommand=self.output_log_scrollbar.set
@@ -774,8 +774,8 @@ class UI:
             UI.SettingsWindow(self)
 
         def stop_previous_request(self) -> None:
-            # Interrupt currently running request by queueing a stop signal.
-            self.user_request_queue.put('stop')
+            # Interrupt currently running request by queueing a stop signal as a dictionary.
+            self.user_request_queue.put({'command': 'stop'})
 
         def display_input(self) -> str:
             # Get the input and update the conversation display
@@ -834,7 +834,15 @@ class UI:
                     'pressing enter',
                     'press enter to submit',
                     'the user just said',
-                    'user request submitted'
+                    'user request submitted',
+                    'i have already typed',
+                    'i will press the enter key',
+                    'responding to the user',
+                    'message',
+                    'typed and submitted',
+                    'user said',
+                    'user requested',
+                    'user sent'
                 ]
 
                 # Check if the message should be filtered
