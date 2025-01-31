@@ -7,7 +7,7 @@ from typing import Optional, Dict, Any
 import ttkbootstrap as ttk
 from .ui_logging import UILoggingMixin
 from utils.settings import Settings
-from tkinter import messagebox
+from tkinter import messagebox, BooleanVar
 
 class AdvancedSettingsWindow(ttk.Toplevel, UILoggingMixin):
     """
@@ -51,19 +51,34 @@ class AdvancedSettingsWindow(ttk.Toplevel, UILoggingMixin):
         content_frame.pack(fill='both', expand=True, padx=10, pady=10)
         content_frame.columnconfigure(0, weight=1)
 
+        # OpenAI Checkbox and Card-like Frame
+        openai_checkbox_frame = ttk.Frame(content_frame)
+        openai_checkbox_frame.grid(row=0, column=0, sticky='ew', padx=5, pady=(0, 10))
+        
+        self.openai_enabled_var = BooleanVar(value=False)
+        openai_checkbox = ttk.Checkbutton(
+            openai_checkbox_frame, 
+            text='OpenAI', 
+            variable=self.openai_enabled_var, 
+            bootstyle="primary", 
+            command=self.toggle_openai_frame
+        )
+        openai_checkbox.pack(side='left', padx=(0, 10))
+
         # OpenAI Card-like Frame
-        openai_frame = ttk.LabelFrame(content_frame, text='OpenAI', bootstyle='primary')
-        openai_frame.grid(row=0, column=0, sticky='ew', padx=5, pady=(0, 10))
-        openai_frame.columnconfigure(0, weight=1)
+        self.openai_frame = ttk.LabelFrame(content_frame, text='OpenAI Settings', bootstyle='primary')
+        self.openai_frame.grid(row=1, column=0, sticky='ew', padx=5, pady=(0, 10))
+        self.openai_frame.columnconfigure(0, weight=1)
+        self.openai_frame.grid_remove()  # Initially hidden
 
         # OpenAI API Key Input
-        label_api = ttk.Label(openai_frame, text='OpenAI API Key:', bootstyle="primary")
+        label_api = ttk.Label(self.openai_frame, text='OpenAI API Key:', bootstyle="primary")
         label_api.grid(row=0, column=0, sticky='w', padx=5, pady=(10, 5))
-        self.api_key_entry = ttk.Entry(openai_frame, width=50)
+        self.api_key_entry = ttk.Entry(self.openai_frame, width=50)
         self.api_key_entry.grid(row=1, column=0, sticky='ew', padx=5, pady=(0, 10))
 
         # Model Selection for OpenAI
-        ttk.Label(openai_frame, text='Select OpenAI Model:', bootstyle="primary").grid(row=2, column=0, sticky='w', padx=5, pady=(10, 5))
+        ttk.Label(self.openai_frame, text='Select OpenAI Model:', bootstyle="primary").grid(row=2, column=0, sticky='w', padx=5, pady=(10, 5))
         
         # Model selection radio buttons
         self.model_var = ttk.StringVar(value='gpt-4o')  # default selection
@@ -75,7 +90,7 @@ class AdvancedSettingsWindow(ttk.Toplevel, UILoggingMixin):
         ]
         
         # Create a frame to hold the radio buttons
-        radio_frame = ttk.Frame(openai_frame)
+        radio_frame = ttk.Frame(self.openai_frame)
         radio_frame.grid(row=3, column=0, sticky='ew', padx=5, pady=(0, 10))
         
         for text, value in models:
@@ -89,23 +104,38 @@ class AdvancedSettingsWindow(ttk.Toplevel, UILoggingMixin):
 
         # Save Button for OpenAI Settings
         save_model_button = ttk.Button(
-            openai_frame, 
+            self.openai_frame, 
             text='Save OpenAI Settings', 
             bootstyle="success", 
             command=self.save_openai_settings
         )
         save_model_button.grid(row=4, column=0, sticky='ew', padx=5, pady=10)
 
+        # Custom AI Model Checkbox and Card-like Frame
+        custom_model_checkbox_frame = ttk.Frame(content_frame)
+        custom_model_checkbox_frame.grid(row=2, column=0, sticky='ew', padx=5, pady=(0, 10))
+        
+        self.custom_model_enabled_var = BooleanVar(value=False)
+        custom_model_checkbox = ttk.Checkbutton(
+            custom_model_checkbox_frame, 
+            text='Custom AI Model', 
+            variable=self.custom_model_enabled_var, 
+            bootstyle="primary", 
+            command=self.toggle_custom_model_frame
+        )
+        custom_model_checkbox.pack(side='left', padx=(0, 10))
+
         # Custom AI Model Card-like Frame
-        custom_model_frame = ttk.LabelFrame(content_frame, text='Custom AI Model', bootstyle='primary')
-        custom_model_frame.grid(row=1, column=0, sticky='ew', padx=5, pady=(0, 10))
-        custom_model_frame.columnconfigure(0, weight=1)
+        self.custom_model_frame = ttk.LabelFrame(content_frame, text='Custom AI Model Settings', bootstyle='primary')
+        self.custom_model_frame.grid(row=3, column=0, sticky='ew', padx=5, pady=(0, 10))
+        self.custom_model_frame.columnconfigure(0, weight=1)
+        self.custom_model_frame.grid_remove()  # Initially hidden
 
         # Custom Model Selection
-        ttk.Label(custom_model_frame, text='Custom Model:', bootstyle="primary").grid(row=0, column=0, sticky='w', padx=5, pady=(10, 5))
+        ttk.Label(self.custom_model_frame, text='Custom Model:', bootstyle="primary").grid(row=0, column=0, sticky='w', padx=5, pady=(10, 5))
         self.custom_model_var = ttk.StringVar(value='custom')
         ttk.Radiobutton(
-            custom_model_frame, 
+            self.custom_model_frame, 
             text='Enable Custom Model', 
             value='custom', 
             variable=self.custom_model_var, 
@@ -113,28 +143,28 @@ class AdvancedSettingsWindow(ttk.Toplevel, UILoggingMixin):
         ).grid(row=1, column=0, sticky='w', padx=5, pady=(0, 10))
 
         # Custom Base URL Input
-        label_base_url = ttk.Label(custom_model_frame, text='Custom Base URL:', bootstyle="secondary")
+        label_base_url = ttk.Label(self.custom_model_frame, text='Custom Base URL:', bootstyle="secondary")
         label_base_url.grid(row=2, column=0, sticky='w', padx=5, pady=(10, 5))
-        self.base_url_entry = ttk.Entry(custom_model_frame, width=50)
+        self.base_url_entry = ttk.Entry(self.custom_model_frame, width=50)
         self.base_url_entry.grid(row=3, column=0, sticky='ew', padx=5, pady=(0, 10))
 
         # Custom Base Model Input
-        label_base_model = ttk.Label(custom_model_frame, text='Custom Base Model:', bootstyle="secondary")
+        label_base_model = ttk.Label(self.custom_model_frame, text='Custom Base Model:', bootstyle="secondary")
         label_base_model.grid(row=4, column=0, sticky='w', padx=5, pady=(10, 5))
-        self.base_model_entry = ttk.Entry(custom_model_frame, width=50)
+        self.base_model_entry = ttk.Entry(self.custom_model_frame, width=50)
         self.base_model_entry.grid(row=5, column=0, sticky='ew', padx=5, pady=(0, 10))
 
         # Custom Model API Key Input
-        label_custom_model_api_key = ttk.Label(custom_model_frame, text='Custom Model API Key:', bootstyle="secondary")
+        label_custom_model_api_key = ttk.Label(self.custom_model_frame, text='Custom Model API Key:', bootstyle="secondary")
         label_custom_model_api_key.grid(row=6, column=0, sticky='w', padx=5, pady=(10, 5))
-        self.custom_model_api_key_entry = ttk.Entry(custom_model_frame, width=50)
+        self.custom_model_api_key_entry = ttk.Entry(self.custom_model_frame, width=50)
         self.custom_model_api_key_entry.grid(row=7, column=0, sticky='ew', padx=5, pady=(0, 10))
 
         # Save Button for Custom Model Settings
         save_custom_model_button = ttk.Button(
-            custom_model_frame, 
+            self.custom_model_frame, 
             text='Save Custom Model Settings', 
-            bootstyle="warning", 
+            bootstyle="success", 
             command=self.save_custom_model_settings
         )
         save_custom_model_button.grid(row=8, column=0, sticky='ew', padx=5, pady=10)
@@ -146,7 +176,7 @@ class AdvancedSettingsWindow(ttk.Toplevel, UILoggingMixin):
             bootstyle="info-outline", 
             command=self.reload_button
         )
-        reload_button.grid(row=2, column=0, sticky='ew', padx=5, pady=(0, 10))
+        reload_button.grid(row=4, column=0, sticky='ew', padx=5, pady=(0, 10))
 
         # Populate UI
         settings_dict = self.settings.get_dict()
@@ -162,9 +192,27 @@ class AdvancedSettingsWindow(ttk.Toplevel, UILoggingMixin):
         if 'custom_model_api_key' in settings_dict:
             self.custom_model_api_key_entry.insert(0, settings_dict['custom_model_api_key'])
 
+    def toggle_openai_frame(self):
+        """
+        Toggle visibility of OpenAI settings frame based on checkbox
+        """
+        if self.openai_enabled_var.get():
+            self.openai_frame.grid()
+        else:
+            self.openai_frame.grid_remove()
+
+    def toggle_custom_model_frame(self):
+        """
+        Toggle visibility of Custom Model settings frame based on checkbox
+        """
+        if self.custom_model_enabled_var.get():
+            self.custom_model_frame.grid()
+        else:
+            self.custom_model_frame.grid_remove()
+
     def save_openai_settings(self) -> None:
         """
-        Save OpenAI specific settings
+        Save OpenAI specific settings and reload the app
         """
         try:
             settings_dict = {}
@@ -190,6 +238,10 @@ class AdvancedSettingsWindow(ttk.Toplevel, UILoggingMixin):
             # Provide feedback
             messagebox.showinfo('Settings Saved', 'OpenAI settings have been successfully saved.')
             
+            # Reload the application
+            if hasattr(self, 'parent') and hasattr(self.parent, 'reload_application'):
+                self.parent.reload_application()
+
             self.destroy()
         
         except Exception as e:
@@ -197,37 +249,47 @@ class AdvancedSettingsWindow(ttk.Toplevel, UILoggingMixin):
 
     def save_custom_model_settings(self) -> None:
         """
-        Save settings for Custom Model
+        Save settings for Custom Model and reload the app
         """
         try:
-            # Save settings for Custom Model
             settings_dict = {}
             
             # Save Base URL if present
             base_url = self.base_url_entry.get().strip()
-            if base_url:
-                settings_dict['base_url'] = base_url
             
             # Save Base Model if present
             base_model = self.base_model_entry.get().strip()
-            if base_model:
-                settings_dict['base_model'] = base_model
             
             # Save Custom Model API Key if present
             custom_model_api_key = self.custom_model_api_key_entry.get().strip()
+            
+            if base_url:
+                settings_dict['base_url'] = base_url
+            
+            if base_model:
+                settings_dict['base_model'] = base_model
+            
             if custom_model_api_key:
                 settings_dict['custom_model_api_key'] = custom_model_api_key
             
             # Save settings
             self.settings.save_settings_to_file(settings_dict)
             
-            # Provide feedback
-            messagebox.showinfo('Settings Saved', 'Custom model settings have been successfully saved.')
+            # Update model display label in main window
+            if hasattr(self, 'parent') and hasattr(self.parent, 'model_display_label'):
+                self.parent.model_display_label.configure(text=f"Current Model: Custom")
             
+            # Provide feedback
+            messagebox.showinfo('Settings Saved', 'Custom AI Model settings have been successfully saved.')
+            
+            # Reload the application
+            if hasattr(self, 'parent') and hasattr(self.parent, 'reload_application'):
+                self.parent.reload_application()
+
             self.destroy()
         
         except Exception as e:
-            messagebox.showerror('Save Error', f'Failed to save custom model settings: {str(e)}')
+            messagebox.showerror('Save Error', f'Failed to save Custom AI Model settings: {str(e)}')
 
     def reload_button(self) -> None:
         """
