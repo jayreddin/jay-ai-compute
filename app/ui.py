@@ -508,24 +508,6 @@ class UI:
                 pady=(0, 10)    # Add some padding below
             )
 
-            # Model Display Label
-            settings = Settings()
-            settings_dict = settings.get_dict()
-            self.model_display_label = ttk.Label(
-                self, 
-                text=f"Current Model: {settings_dict.get('model', 'Not Set')}", 
-                bootstyle="secondary",
-                anchor='center'  # Center the text
-            )
-            self.model_display_label.grid(
-                row=1,  # Positioned just below the title
-                column=0, 
-                columnspan=2, 
-                sticky='ew', 
-                padx=10, 
-                pady=5
-            )
-
             # Input Command Frame - card-like border
             self.input_command_frame = ttk.LabelFrame(
                 frame, 
