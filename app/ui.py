@@ -577,7 +577,8 @@ class UI:
             # Stop Button - make responsive
             self.stop_button = ttk.Button(
                 frame, 
-                text='Stop', 
+                text='Cancel',
+                bootstyle="danger", 
                 command=self.stop_previous_request
             )
             self.stop_button.grid(
@@ -588,6 +589,24 @@ class UI:
                 sticky='ew'
             )
 
+            # Model Display Label
+            settings = Settings()
+            settings_dict = settings.get_dict()
+            self.model_display_label = ttk.Label(
+                frame, 
+                text=f"Current Model: {settings_dict.get('model', 'Not Set')}", 
+                bootstyle="primary",
+                anchor='center'  # Center the text
+            )
+            self.model_display_label.grid(
+                row=5,  # Positioned just below the title
+                column=0, 
+                columnspan=2, 
+                sticky='ew', 
+                padx=10, 
+                pady=5
+            )
+
             # Conversation Frame - make responsive
             self.conversation_frame = ttk.LabelFrame(
                 frame, 
@@ -595,14 +614,14 @@ class UI:
                 bootstyle='primary'  
             )
             self.conversation_frame.grid(
-                row=5, 
+                row=6, 
                 column=0, 
                 columnspan=2, 
                 padx=10, 
                 pady=10, 
                 sticky='nsew'
             )
-            frame.grid_rowconfigure(5, weight=1)  # Allow conversation frame to expand
+            frame.grid_rowconfigure(6, weight=1)  # Allow conversation frame to expand
 
             # Conversation Text with Scrollbar
             conversation_text_frame = ttk.Frame(self.conversation_frame)
@@ -646,7 +665,7 @@ class UI:
             # Ensure the main frame can expand
             frame.grid_columnconfigure(0, weight=1)
             frame.grid_columnconfigure(1, weight=1)
-            frame.grid_rowconfigure(5, weight=1)  # Critical: give weight to Output Log row
+            frame.grid_rowconfigure(6, weight=1)  # Critical: give weight to Output Log row
 
             # Output Log Frame - card-like border with full expansion
             self.output_log_frame = ttk.LabelFrame(
@@ -655,7 +674,7 @@ class UI:
                 bootstyle='primary'
             )
             self.output_log_frame.grid(
-                row=6, 
+                row=7, 
                 column=0, 
                 columnspan=2,  # Span across both columns
                 padx=10, 
@@ -713,7 +732,7 @@ class UI:
                 command=self.open_settings
             )
             settings_button.grid(
-                row=7, 
+                row=8, 
                 column=0, 
                 sticky='ew', 
                 padx=10, 
@@ -728,7 +747,7 @@ class UI:
                 command=self.open_mobile_interface
             )
             mobile_button.grid(
-                row=7, 
+                row=8, 
                 column=1, 
                 sticky='ew', 
                 padx=10, 
@@ -743,7 +762,7 @@ class UI:
                 command=self.reload_model_settings
             )
             reload_model_button.grid(
-                row=8, 
+                row=9, 
                 column=0, 
                 columnspan=2, 
                 sticky='ew', 
@@ -809,7 +828,13 @@ class UI:
                     'user message',
                     'typing',
                     'please send',
-                    'the user has already'
+                    'the user has already',
+                    'the user typed',
+                    'the user said',
+                    'pressing enter',
+                    'press enter to submit',
+                    'the user just said',
+                    'user request submitted'
                 ]
 
                 # Check if the message should be filtered
