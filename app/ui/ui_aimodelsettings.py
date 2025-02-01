@@ -24,8 +24,6 @@ class AdvancedSettingsWindow(ttk.Toplevel, UILoggingMixin):
         # Set window size and minimum size
         self.geometry(f'{window_width}x{window_height}')
         self.minsize(window_width, window_height)
-        
-        # Ensure window doesn't expand unnecessarily
         self.grid_propagate(False)
         
         # Position the window directly on top of the parent window
@@ -69,7 +67,6 @@ class AdvancedSettingsWindow(ttk.Toplevel, UILoggingMixin):
         self.openai_frame = ttk.LabelFrame(content_frame, text='OpenAI Settings', bootstyle='primary')
         self.openai_frame.grid(row=1, column=0, sticky='ew', padx=5, pady=(0, 10))
         self.openai_frame.columnconfigure(0, weight=1)
-        self.openai_frame.grid_remove()  # Initially hidden
 
         # OpenAI API Key Input
         label_api = ttk.Label(self.openai_frame, text='OpenAI API Key:', bootstyle="primary")
@@ -129,7 +126,6 @@ class AdvancedSettingsWindow(ttk.Toplevel, UILoggingMixin):
         self.custom_model_frame = ttk.LabelFrame(content_frame, text='Custom AI Model Settings', bootstyle='primary')
         self.custom_model_frame.grid(row=3, column=0, sticky='ew', padx=5, pady=(0, 10))
         self.custom_model_frame.columnconfigure(0, weight=1)
-        self.custom_model_frame.grid_remove()  # Initially hidden
 
         # Custom Model Selection
         ttk.Label(self.custom_model_frame, text='Custom Model:', bootstyle="primary").grid(row=0, column=0, sticky='w', padx=5, pady=(10, 5))
@@ -296,27 +292,22 @@ class AdvancedSettingsWindow(ttk.Toplevel, UILoggingMixin):
         Reload the currently selected model settings
         """
         try:
-            # Reload settings from file
             settings_dict = self.settings.get_dict()
             
             # Repopulate UI with current settings
             if 'api_key' in settings_dict:
                 self.api_key_entry.delete(0, 'end')
                 self.api_key_entry.insert(0, settings_dict['api_key'])
-            
             if 'model' in settings_dict:
                 self.model_var.set(settings_dict['model'])
             
             if 'base_url' in settings_dict:
                 self.base_url_entry.delete(0, 'end')
                 self.base_url_entry.insert(0, settings_dict['base_url'])
-            
             if 'base_model' in settings_dict:
-                self.base_model_entry.delete(0, 'end')
                 self.base_model_entry.insert(0, settings_dict['base_model'])
             
             if 'custom_model_api_key' in settings_dict:
-                self.custom_model_api_key_entry.delete(0, 'end')
                 self.custom_model_api_key_entry.insert(0, settings_dict['custom_model_api_key'])
             
             # Provide feedback
