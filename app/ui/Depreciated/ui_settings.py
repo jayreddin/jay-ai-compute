@@ -56,6 +56,9 @@ class SettingsWindow(ttk.Toplevel, UILoggingMixin):
         self.create_mobile_settings(content_frame)
         self.create_theme_settings(content_frame)
         
+        # Create AI Model Settings button
+        self.create_ai_model_settings_button(content_frame)
+        
         # Save and Cancel buttons
         self.create_action_buttons(content_frame)
         
@@ -169,6 +172,21 @@ class SettingsWindow(ttk.Toplevel, UILoggingMixin):
         )
         self.theme_combo.pack(padx=5, pady=(0, 10), fill='x')
     
+    def create_ai_model_settings_button(self, parent):
+        """Create AI Model Settings button"""
+        ai_model_settings_btn = ttk.Button(
+            parent, 
+            text='AI Model Settings', 
+            bootstyle='secondary', 
+            command=self.open_ai_model_settings
+        )
+        ai_model_settings_btn.pack(side='left', padx=5, pady=5)
+
+    def open_ai_model_settings(self):
+        """Open AI Model Settings window"""
+        from app.ui.ui_aimodelsettings import AdvancedSettingsWindow
+        AdvancedSettingsWindow(self)
+
     def create_action_buttons(self, parent):
         """Create save and cancel buttons"""
         button_frame = ttk.Frame(parent)
@@ -181,6 +199,14 @@ class SettingsWindow(ttk.Toplevel, UILoggingMixin):
             command=self.save_settings
         )
         save_btn.pack(side='left', padx=5, expand=True, fill='x')
+        
+        ai_model_settings_btn = ttk.Button(
+            button_frame, 
+            text='AI Model Settings', 
+            bootstyle='secondary', 
+            command=self.open_ai_model_settings
+        )
+        ai_model_settings_btn.pack(side='left', padx=5, pady=5)
         
         cancel_btn = ttk.Button(
             button_frame, 

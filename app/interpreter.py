@@ -4,6 +4,8 @@ import logging
 from multiprocessing import Queue
 from time import sleep
 from typing import Any
+import webbrowser
+import subprocess
 
 try:
     import pyautogui
@@ -53,36 +55,17 @@ class Interpreter:
         # Comprehensive handling for headless mode
         gui_functions = ['click', 'moveTo', 'typewrite', 'write', 'press', 'hotkey']
         if self.headless_mode and function_name in gui_functions:
-            logging.warning(f"Skipping GUI function {function_name} in headless mode. Simulating action.")
-            return self.simulate_headless_action(function_name, parameters)
+            logging.warning(f"Skipping GUI function {function_name} in headless mode.")
+            return True # Simulate action without executing for headless mode
         
         try:
             self.execute_function(function_name, parameters)
             return True
         except Exception as e:
-            print(f'\nError:\nWe are having a problem executing this step - {type(e)} - {e}')
-            print(f'This was the json we received from the LLM: {json.dumps(json_command, indent=2)}')
-            print(f'This is what we extracted:')
-            print(f'\t function_name:{function_name}')
-            print(f'\t parameters:{parameters}')
-
+            self.status_queue.put(f'We are having a problem executing this step - {type(e)} - {e}')
+            self.status_queue.put(f'This was the json we received from the LLM: {json.dumps(json_command, indent=2)}')
+            self.status_queue.put(f'This is what we extracted:\n         function_name:{function_name}\n         parameters:{parameters}')
             return False
-
-    def simulate_headless_action(self, function_name: str, parameters: dict[str, Any]) -> bool:
-        """
-        Simulate actions in headless mode by logging and returning success
-        """
-        simulated_actions = {
-            'click': f"Simulated click at {parameters.get('x', 'unknown')}, {parameters.get('y', 'unknown')}",
-            'moveTo': f"Simulated mouse move to {parameters.get('x', 'unknown')}, {parameters.get('y', 'unknown')}",
-            'typewrite': f"Simulated typing: {parameters.get('string', parameters.get('text', 'no text'))}",
-            'write': f"Simulated writing: {parameters.get('string', parameters.get('text', 'no text'))}",
-            'press': f"Simulated key press: {parameters.get('keys', parameters.get('key', 'no key'))}",
-            'hotkey': f"Simulated hotkey: {list(parameters.values())}"
-        }
-        
-        logging.info(simulated_actions.get(function_name, f"Simulated {function_name}"))
-        return True
 
     def execute_function(self, function_name: str, parameters: dict[str, Any]) -> None:
         """
@@ -94,29 +77,93 @@ class Interpreter:
         if pyautogui is not None:
             pyautogui.press("command", interval=0.2)
 
-        if function_name == "sleep" and parameters.get("secs"):
-            sleep(parameters.get("secs"))
+        if function_name == "sleep":
+            secs = parameters.get("secs")
+            if secs:
+                sleep(secs)
+        elif function_name == "open_url":
+            url = parameters.get("url")
+            self.open_url_in_browser(url)
+        elif function_name == "open_application":
+             app_name = parameters.get("name")
+             self.open_application(app_name)
+        elif function_name == "run_terminal_command":
+            command = parameters.get("command")
+            self.run_terminal_command(command)
         elif pyautogui is not None and hasattr(pyautogui, function_name):
             # Execute the corresponding pyautogui function i.e. Keyboard or Mouse commands.
             function_to_call = getattr(pyautogui, function_name)
-
-            # Special handling for the 'write' function
             if function_name == 'write' and ('string' in parameters or 'text' in parameters):
                 # 'write' function expects a string, not a 'text' keyword argument but LLM sometimes gets confused on the parameter name.
                 string_to_write = parameters.get('string') or parameters.get('text')
                 interval = parameters.get('interval', 0.1)
                 function_to_call(string_to_write, interval=interval)
-            elif function_name == 'press' and ('keys' in parameters or 'key' in parameters):
-                # 'press' can take a list of keys or a single key
-                keys_to_press = parameters.get('keys') or parameters.get('key')
+            elif function_name == 'press' and ('keys' in parameters):
+                keys = parameters.get('keys', [])
                 presses = parameters.get('presses', 1)
                 interval = parameters.get('interval', 0.2)
-                function_to_call(keys_to_press, presses=presses, interval=interval)
-            elif function_name == 'hotkey':
-                # 'hotkey' function expects multiple key arguments, not a list
-                function_to_call(list(parameters.values()))
+                for key in keys:
+                    function_to_call(key, presses=presses, interval=interval)
+            elif function_name == 'press' and ('key' in parameters): # Modified this line
+                 key = parameters.get('key') # Added this line
+                 function_to_call(key) # Modified this line
+            elif function_name == 'hotkey' and ('keys' in parameters):
+                keys = parameters.get('keys', [])
+                function_to_call(*keys)
             else:
                 # For other functions, pass the parameters as they are
                 function_to_call(**parameters)
         else:
             print(f'No such function {function_name} in our interface\'s interpreter')
+    
+    def open_url_in_browser(self, url: str) -> None:
+        """
+        Opens the URL in the default browser.
+
+         Args:
+             url (str): The URL to open.
+        """
+        self.status_queue.put(f'opening URL {url}')
+        
+        settings = Settings()
+        settings_dict = settings.get_dict()
+        default_browser = settings_dict.get('default_browser', 'Default')
+        
+        if default_browser == 'Default':
+            webbrowser.open(url)
+        elif default_browser == 'Chrome':
+            webbrowser.get('chrome').open(url)
+        elif default_browser == 'Firefox':
+            webbrowser.get('firefox').open(url)
+        elif default_browser == 'Safari':
+            webbrowser.get('safari').open(url)
+        elif default_browser == 'Edge':
+             webbrowser.get('edge').open(url)
+        else:
+             webbrowser.open(url)
+
+    def open_application(self, app_name: str) -> None:
+        """
+        Opens an application.
+
+        Args:
+             app_name (str): The application name to open.
+        """
+        self.status_queue.put(f'opening application {app_name}')
+        try:
+          subprocess.Popen(app_name, shell=True) # Use shell=True so subprocess will use the shell to call the application
+        except Exception as e:
+          self.status_queue.put(f"Error opening application '{app_name}': {e}")
+
+    def run_terminal_command(self, command: str) -> None:
+        """
+        Opens a terminal and executes the command.
+
+        Args:
+             command (str): The terminal command to execute.
+        """
+        self.status_queue.put(f'running terminal command: {command}')
+        try:
+            subprocess.Popen(['/bin/bash', '-c', command])
+        except Exception as e:
+           self.status_queue.put(f'Error running terminal command {command}: {e}')

@@ -12,7 +12,7 @@ from multiprocessing import freeze_support
 import queue
 
 from core import Core
-from app.ui import UI
+from ui.ui import UI # Changed this line
 
 
 class App:
@@ -51,7 +51,7 @@ class App:
             os.environ['DISPLAY'] = ':99'
 
         self.core = Core()
-        self.ui = UI()
+        self.ui = UI() # Changed this line
 
         # Threading event to signal thread termination
         self.stop_event = threading.Event()
